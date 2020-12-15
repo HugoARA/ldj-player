@@ -39,7 +39,7 @@ OBJS 				:= $(addprefix $(OBJDIR)/,$(notdir $(STARTUP_STM32F746G:.s=.o)) $(notdi
 
 all: release
 
-release: $(BINDIR)/$(TARGET).bin $(STM32CUBEF7)
+release: $(STM32CUBEF7) $(BINDIR)/$(TARGET).bin
 
 $(BINDIR)/$(TARGET).bin: $(BINDIR)/$(TARGET).elf
 
