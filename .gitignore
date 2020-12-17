@@ -2,3 +2,4 @@ bin/
 obj/
 STM32CubeF7/
 .blank
+.vscode/

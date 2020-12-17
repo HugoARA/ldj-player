@@ -35,10 +35,16 @@ BINDIR				:= $(PWD)/bin
 OBJDIR 				:= $(PWD)/obj
 OBJS 				:= $(addprefix $(OBJDIR)/,$(notdir $(STARTUP_STM32F746G:.s=.o)) $(notdir $(SYSTEM_STM32F746G:.c=.o)) $(notdir $(SOURCES:.cpp=.o)))
 
-.PHONY: all clean flash
+.PHONY: all release debug clean flash
 
-all: release
+all: debug
 
+debug: CFLAGS += -DDEBUG -g3
+debug: CXXFLAGS += -DDEBUG -g3
+debug: $(STM32CUBEF7) $(BINDIR)/$(TARGET).bin
+
+release: CFLAGS += -O2
+release: CXXFLAGS += -O2
 release: $(STM32CUBEF7) $(BINDIR)/$(TARGET).bin
 
 $(BINDIR)/$(TARGET).bin: $(BINDIR)/$(TARGET).elf
@@ -66,8 +72,8 @@ $(STM32CUBEF7):
 %.bin: %.elf
 	$(OBJCOPY) -O binary $< $@
 
-flash: $(TARGET).bin
-	st-flash write $(TARGET).elf 0x8000000
+flash: $(BINDIR)/$(TARGET).bin
+	openocd -f /usr/share/openocd/scripts/interface/stlink-v2-1.cfg -f /usr/share/openocd/scripts/target/stm32f7x.cfg -c "program $< exit 0x08000000"
 
 clean:
 	@rm -rf $(OBJDIR) $(BINDIR)
