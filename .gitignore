@@ -2,4 +2,7 @@ bin/
 obj/
 STM32CubeF7/
 .blank
+.cproject
+.project
+.settings/
 .vscode/
