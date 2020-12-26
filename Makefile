@@ -35,11 +35,16 @@ STM32F7XX_HAL_SRC     := $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal.c \
                          $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_sd.c \
                          $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_ll_sdmmc.c \
                          $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_dma.c \
+                         $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_sai.c
 ### STM32F746G-Discovery BSP ###
 STM32F7_DISCOVERY_DIR := $(STM32CUBEF7)/Drivers/BSP/STM32746G-Discovery
 STM32F7_DISCOVERY_INC := -I$(STM32F7_DISCOVERY_DIR)
 STM32F7_DISCOVERY_SRC := $(STM32F7_DISCOVERY_DIR)/stm32746g_discovery.c \
-                         $(STM32F7_DISCOVERY_DIR)/stm32746g_discovery_sd.c
+                         $(STM32F7_DISCOVERY_DIR)/stm32746g_discovery_sd.c \
+                         $(STM32F7_DISCOVERY_DIR)/stm32746g_discovery_audio.c
+### wm8994 ###
+WM8994_DIR            := $(STM32CUBEF7)/Drivers/BSP/Components/wm8994
+WM8994_SRC            := $(WM8994_DIR)/wm8994.c
 ### FatFs ###
 FATFS_DIR             := $(STM32CUBEF7)/Middlewares/Third_Party/FatFs
 FATFS_INC             := -I$(FATFS_DIR)/src
@@ -69,7 +74,8 @@ OBJS                  := $(addprefix $(OBJDIR)/, \
                             $(notdir $(STM32F7XX_HAL_SRC:.c=.o)) \
                             $(notdir $(STM32F7_DISCOVERY_SRC:.c=.o)) \
                             $(notdir $(FATFS_SRC:.c=.o)) \
-                            $(notdir $(SD_DISKIO:.c=.o)))
+                            $(notdir $(SD_DISKIO:.c=.o)) \
+                            $(notdir $(WM8994_SRC:.c=.o)))
 
 .PHONY: all release debug clean flash openocd
 
@@ -117,6 +123,10 @@ $(OBJDIR)/%.o: $(FATFS_SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/%.o: $(FATFS_SRC_DIR)/option/%.c
+	@mkdir -p $(OBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJDIR)/%.o: $(WM8994_DIR)/%.c
 	@mkdir -p $(OBJDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
