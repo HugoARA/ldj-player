@@ -20,21 +20,38 @@ STM32F746G_INC        := -I$(STM32CUBEF7)/Drivers/CMSIS/Include \
 FWDIR                 := $(PWD)/fw
 STARTUP_STM32F746G    := $(FWDIR)/startup_stm32f746xx.S
 SYSTEM_STM32F746G     := $(FWDIR)/system_stm32f7xx.c
+SD_DISKIO             := $(FWDIR)/sd_diskio.c
 ### STM32F7XX HAL Driver ###
 STM32F7XX_HAL         := $(STM32CUBEF7)/Drivers/STM32F7xx_HAL_Driver
 STM32F7XX_HAL_INC     := -I$(STM32F7XX_HAL)/Inc
 STM32F7XX_HAL_SRC_DIR := $(STM32F7XX_HAL)/Src
-STM32F7XX_HAL_SRC     := $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_cortex.c \
+STM32F7XX_HAL_SRC     := $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal.c \
+                         $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_rcc.c \
+                         $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_pwr_ex.c \
+                         $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_cortex.c \
                          $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_gpio.c \
                          $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_uart.c \
-                         $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_i2c.c
+                         $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_i2c.c \
+                         $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_sd.c \
+                         $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_ll_sdmmc.c \
+                         $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_dma.c \
 ### STM32F746G-Discovery BSP ###
 STM32F7_DISCOVERY_DIR := $(STM32CUBEF7)/Drivers/BSP/STM32746G-Discovery
 STM32F7_DISCOVERY_INC := -I$(STM32F7_DISCOVERY_DIR)
-STM32F7_DISCOVERY_SRC := $(STM32F7_DISCOVERY_DIR)/stm32746g_discovery.c
+STM32F7_DISCOVERY_SRC := $(STM32F7_DISCOVERY_DIR)/stm32746g_discovery.c \
+                         $(STM32F7_DISCOVERY_DIR)/stm32746g_discovery_sd.c
+### FatFs ###
+FATFS_DIR             := $(STM32CUBEF7)/Middlewares/Third_Party/FatFs
+FATFS_INC             := -I$(FATFS_DIR)/src
+FATFS_SRC_DIR         := $(FATFS_DIR)/src
+FATFS_SRC             := $(FATFS_SRC_DIR)/ff.c \
+                         $(FATFS_SRC_DIR)/diskio.c \
+                         $(FATFS_SRC_DIR)/ff_gen_drv.c \
+                         $(FATFS_SRC_DIR)/option/unicode.c \
+                         $(FATFS_SRC_DIR)/option/syscall.c
 ### PROJECT INCLUDES ###
 INCDIR                := -I$(PWD)/inc
-INC                   := $(STM32F746G_INC) $(STM32F7XX_HAL_INC) $(STM32F7_DISCOVERY_INC) $(INCDIR)
+INC                   := $(STM32F746G_INC) $(STM32F7XX_HAL_INC) $(STM32F7_DISCOVERY_INC) $(FATFS_INC) $(INCDIR)
 ### PROJECT SOURCES ###
 SRCDIR                := $(PWD)/src
 SOURCES               := $(SRCDIR)/main.cpp
@@ -50,7 +67,9 @@ OBJS                  := $(addprefix $(OBJDIR)/, \
                             $(notdir $(SYSTEM_STM32F746G:.c=.o)) \
                             $(notdir $(SOURCES:.cpp=.o)) \
                             $(notdir $(STM32F7XX_HAL_SRC:.c=.o)) \
-                            $(notdir $(STM32F7_DISCOVERY_SRC:.c=.o)))
+                            $(notdir $(STM32F7_DISCOVERY_SRC:.c=.o)) \
+                            $(notdir $(FATFS_SRC:.c=.o)) \
+                            $(notdir $(SD_DISKIO:.c=.o)))
 
 .PHONY: all release debug clean flash openocd
 
@@ -90,6 +109,18 @@ $(OBJDIR)/%.o: $(STM32F7XX_HAL_SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/%.o: $(STM32F7_DISCOVERY_DIR)/%.c
+	@mkdir -p $(OBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJDIR)/%.o: $(FATFS_SRC_DIR)/%.c
+	@mkdir -p $(OBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJDIR)/%.o: $(FATFS_SRC_DIR)/option/%.c
+	@mkdir -p $(OBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJDIR)/%.o: $(FWDIR)/%.c
 	@mkdir -p $(OBJDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
