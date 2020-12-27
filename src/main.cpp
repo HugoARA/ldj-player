@@ -1,8 +1,11 @@
 #include <cstdio>
 #include "stm32746g_discovery.h"
+#include "stm32746g_discovery_audio.h"
 
 #include "ff_gen_drv.h"
-#include "sd_diskio.h"
+#include "sd_diskio_dma_rtos.h"
+
+#include "cmsis_os2.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -18,18 +21,17 @@ static void SystemClock_Config(void);
 static void Error_Handler(void);
 static void CPU_CACHE_Enable(void);
 
+static void LED_Thread1(void* arg);
+static void SD_Thread(void* arg);
+
 int main(void)
 {
-   FRESULT res;                            /* FatFs function common result code */
-   uint32_t bytesread;                     /* File write/read counts */
-   uint8_t rtext[100];                     /* File read buffer */
+   /* Enable the CPU Cache */
+   CPU_CACHE_Enable();
 
    printf("Hello World!\n");
 
    BSP_LED_Init(LED1);
-
-   /* Enable the CPU Cache */
-   CPU_CACHE_Enable();
 
    /* STM32F7xx HAL library initialization:
         - Configure the Flash ART accelerator on ITCM interface
@@ -42,51 +44,15 @@ int main(void)
    /* Configure the system clock to 216 MHz */
    SystemClock_Config();
 
-   /*##-1- Link the micro SD disk I/O driver ##################################*/
-   if(FATFS_LinkDriver(&SD_Driver, SDPath) == 0)
-   {
-     /*##-2- Register the file system object to the FatFs module ##############*/
-     if(f_mount(&SDFatFs, (TCHAR const*)SDPath, 0) != FR_OK)
-     {
-       /* FatFs Initialization Error */
-       Error_Handler();
-     }
-     else
-     {
-         /*##-4- Create and Open a new text file object with write access #####*/
-         if(f_open(&MyFile, "arroz/cenoura.txt", FA_READ) != FR_OK)
-         {
-           /* 'STM32.TXT' file Open for read Error */
-           Error_Handler();
-         }
-         else
-         {
-           /*##-5- Write data to the text file ################################*/
-           res = f_read(&MyFile, rtext, sizeof(rtext), (UINT*)&bytesread);
+	osKernelInitialize();
 
-           if((bytesread == 0) || (res != FR_OK))
-           {
-              /* 'STM32.TXT' file Read or EOF Error */
-             Error_Handler();
-           }
-           else
-           {
-             /*##-6- Close the open text file #################################*/
-             f_close(&MyFile);
+//	osThreadNew(LED_Thread1, nullptr, nullptr);
 
-             fwrite(rtext, sizeof(char), bytesread, stdout);
-             fflush(stdout);
-             /* Success of the demo: no error occurrence */
-             BSP_LED_On(LED1);
-           }
-         }
-     }
-   }
+	osThreadNew(SD_Thread, nullptr, nullptr);
 
-   /*##-11- Unlink the micro SD disk I/O driver ###############################*/
-   FATFS_UnLinkDriver(SDPath);
+	osKernelStart();
 
-   return 0;
+	return 0;
 }
 
 /**
@@ -183,11 +149,88 @@ static void Error_Handler(void)
 }
 
 /**
-  * @brief  This function handles SysTick Handler.
-  * @param  None
+  * @brief  Toggle LED1 thread
+  * @param  Thread not used
   * @retval None
   */
-extern "C" void SysTick_Handler(void)
+static void LED_Thread1(void* arg)
 {
-  HAL_IncTick();
+  (void) arg;
+
+  for(;;)
+  {
+/* osDelayUntil function differs from osDelay() in one important aspect:  osDelay () will
+ * cause a thread to block for the specified time in ms from the time osDelay () is
+ * called.  It is therefore difficult to use osDelay () by itself to generate a fixed
+ * execution frequency as the time between a thread starting to execute and that thread
+ * calling osDelay () may not be fixed [the thread may take a different path though the
+ * code between calls, or may get interrupted or preempted a different number of times
+ * each time it executes].
+ *
+ * Whereas osDelay () specifies a wake time relative to the time at which the function
+ * is called, osDelayUntil () specifies the absolute (exact) time at which it wishes to
+ * unblock.
+ * PreviousWakeTime must be initialised with the current time prior to its first use 
+ * (PreviousWakeTime = osKernelSysTick() )   
+ */  
+    osDelay(200);
+    BSP_LED_Toggle(LED1);
+  }
+}
+
+static void SD_Thread(void* arg) /*  WHY Doesn't this work on DEBUG Mode? Debug Clock?? (release works just fine...) */
+{
+   FRESULT res;                            /* FatFs function common result code */
+   uint32_t bytesread;                     /* File write/read counts */
+   uint8_t rtext[100];                     /* File read buffer */
+	
+	(void) arg;
+
+   /*##-1- Link the micro SD disk I/O driver ##################################*/
+   if(FATFS_LinkDriver(&SD_Driver, SDPath) == 0)
+   {
+     /*##-2- Register the file system object to the FatFs module ##############*/
+     if(f_mount(&SDFatFs, (TCHAR const*)SDPath, 0) != FR_OK)
+     {
+       /* FatFs Initialization Error */
+       Error_Handler();
+     }
+     else
+     {
+         /*##-4- Create and Open a new text file object with write access #####*/
+         if(f_open(&MyFile, "arroz/cenoura.txt", FA_READ) != FR_OK)
+         {
+           /* 'STM32.TXT' file Open for read Error */
+           Error_Handler();
+         }
+         else
+         {
+           /*##-5- Write data to the text file ################################*/
+           res = f_read(&MyFile, rtext, sizeof(rtext), (UINT*)&bytesread);
+
+           if((bytesread == 0) || (res != FR_OK))
+           {
+              /* 'STM32.TXT' file Read or EOF Error */
+             Error_Handler();
+           }
+           else
+           {
+             /*##-6- Close the open text file #################################*/
+             f_close(&MyFile);
+
+             fwrite(rtext, sizeof(char), bytesread, stdout);
+             fflush(stdout);
+             /* Success of the demo: no error occurrence */
+             BSP_LED_On(LED1);
+           }
+         }
+     }
+   }
+
+   /*##-11- Unlink the micro SD disk I/O driver ###############################*/
+   FATFS_UnLinkDriver(SDPath);
+
+//	BSP_AUDIO_OUT_Init(OUTPUT_DEVICE_AUTO, 100, I2S_AUDIOFREQ_44K);
+//	BSP_AUDIO_OUT_Play((uint16_t*)&BufferCtl.buff[0], AUDIO_OUT_BUFFER_SIZE);
+	for (;;);
 }

@@ -20,7 +20,9 @@ STM32F746G_INC        := -I$(STM32CUBEF7)/Drivers/CMSIS/Include \
 FWDIR                 := $(PWD)/fw
 STARTUP_STM32F746G    := $(FWDIR)/startup_stm32f746xx.S
 SYSTEM_STM32F746G     := $(FWDIR)/system_stm32f7xx.c
-SD_DISKIO             := $(FWDIR)/sd_diskio.c
+#SD_DISKIO             := $(FWDIR)/sd_diskio.c
+SD_DISKIO             := $(FWDIR)/sd_diskio_dma_rtos.c
+STM32F7_SYSTICK_ALT   := $(FWDIR)/stm32f7xx_hal_timebase_tim.c
 ### STM32F7XX HAL Driver ###
 STM32F7XX_HAL         := $(STM32CUBEF7)/Drivers/STM32F7xx_HAL_Driver
 STM32F7XX_HAL_INC     := -I$(STM32F7XX_HAL)/Inc
@@ -35,13 +37,27 @@ STM32F7XX_HAL_SRC     := $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal.c \
                          $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_sd.c \
                          $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_ll_sdmmc.c \
                          $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_dma.c \
-                         $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_sai.c
+                         $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_sai.c \
+                         $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_tim.c \
+                         $(STM32F7XX_HAL_SRC_DIR)/stm32f7xx_hal_tim_ex.c
 ### STM32F746G-Discovery BSP ###
 STM32F7_DISCOVERY_DIR := $(STM32CUBEF7)/Drivers/BSP/STM32746G-Discovery
 STM32F7_DISCOVERY_INC := -I$(STM32F7_DISCOVERY_DIR)
 STM32F7_DISCOVERY_SRC := $(STM32F7_DISCOVERY_DIR)/stm32746g_discovery.c \
                          $(STM32F7_DISCOVERY_DIR)/stm32746g_discovery_sd.c \
                          $(STM32F7_DISCOVERY_DIR)/stm32746g_discovery_audio.c
+### FreeRTOS ###
+FREERTOS_DIR          := $(STM32CUBEF7)/Middlewares/Third_Party/FreeRTOS/Source
+FREERTOS_INC          := -I$(FREERTOS_DIR)/include -I$(FREERTOS_DIR)/portable/GCC/ARM_CM7/r0p1
+FREERTOS_SRC          := $(FREERTOS_DIR)/tasks.c \
+                         $(FREERTOS_DIR)/queue.c \
+                         $(FREERTOS_DIR)/list.c \
+                         $(FREERTOS_DIR)/event_groups.c \
+                         $(FREERTOS_DIR)/portable/GCC/ARM_CM7/r0p1/port.c \
+                         $(FREERTOS_DIR)/portable/MemMang/heap_4.c
+### CMSIS-RTOS2 ###
+FREERTOS_INC          += -I$(FREERTOS_DIR)/CMSIS_RTOS_V2
+FREERTOS_SRC          += $(FREERTOS_DIR)/CMSIS_RTOS_V2/cmsis_os2.c
 ### wm8994 ###
 WM8994_DIR            := $(STM32CUBEF7)/Drivers/BSP/Components/wm8994
 WM8994_SRC            := $(WM8994_DIR)/wm8994.c
@@ -56,7 +72,7 @@ FATFS_SRC             := $(FATFS_SRC_DIR)/ff.c \
                          $(FATFS_SRC_DIR)/option/syscall.c
 ### PROJECT INCLUDES ###
 INCDIR                := -I$(PWD)/inc
-INC                   := $(STM32F746G_INC) $(STM32F7XX_HAL_INC) $(STM32F7_DISCOVERY_INC) $(FATFS_INC) $(INCDIR)
+INC                   := $(STM32F746G_INC) $(STM32F7XX_HAL_INC) $(STM32F7_DISCOVERY_INC) $(FREERTOS_INC) $(FATFS_INC) $(INCDIR)
 ### PROJECT SOURCES ###
 SRCDIR                := $(PWD)/src
 SOURCES               := $(SRCDIR)/main.cpp
@@ -75,6 +91,8 @@ OBJS                  := $(addprefix $(OBJDIR)/, \
                             $(notdir $(STM32F7_DISCOVERY_SRC:.c=.o)) \
                             $(notdir $(FATFS_SRC:.c=.o)) \
                             $(notdir $(SD_DISKIO:.c=.o)) \
+                            $(notdir $(STM32F7_SYSTICK_ALT:.c=.o)) \
+                            $(notdir $(FREERTOS_SRC:.c=.o)) \
                             $(notdir $(WM8994_SRC:.c=.o)))
 
 .PHONY: all release debug clean flash openocd
@@ -123,6 +141,22 @@ $(OBJDIR)/%.o: $(FATFS_SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/%.o: $(FATFS_SRC_DIR)/option/%.c
+	@mkdir -p $(OBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJDIR)/%.o: $(FREERTOS_DIR)/%.c
+	@mkdir -p $(OBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJDIR)/%.o: $(FREERTOS_DIR)/portable/GCC/ARM_CM7/r0p1/%.c
+	@mkdir -p $(OBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJDIR)/%.o: $(FREERTOS_DIR)/portable/MemMang/%.c
+	@mkdir -p $(OBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJDIR)/%.o: $(FREERTOS_DIR)/CMSIS_RTOS_V2/%.c
 	@mkdir -p $(OBJDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
